@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply antialiased text-zinc-900 bg-zinc-50;
+    /* Prevent pull-to-refresh on mobile if desired, but usually keep it for PWAs */
+    overscroll-behavior-y: none;
+  }
+}
