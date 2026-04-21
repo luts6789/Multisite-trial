@@ -1,0 +1,202 @@
+{
+  "entities": {
+    "Shop": {
+      "title": "Shop",
+      "description": "A drug shop location",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Name of the shop" },
+        "location": { "type": "string", "description": "Physical location" }
+      },
+      "required": ["name"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Application user with role and shop assignment",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["admin", "personnel"] },
+        "shopId": { "type": "string", "description": "Assigned shop ID for personnel" }
+      },
+      "required": ["email", "role"]
+    },
+    "Drug": {
+      "title": "Drug",
+      "description": "Inventory item in a specific shop",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "shopId": { "type": "string" },
+        "costPrice": { "type": "number" },
+        "sellingPrice": { "type": "number" },
+        "quantity": { "type": "number" },
+        "expiryDate": { "type": "string", "format": "date", "description": "ISO 8601 date" }
+      },
+      "required": ["name", "shopId", "costPrice", "sellingPrice", "quantity", "expiryDate"]
+    },
+    "Sale": {
+      "title": "Sale",
+      "description": "A transaction record",
+      "type": "object",
+      "properties": {
+        "shopId": { "type": "string" },
+        "drugId": { "type": "string" },
+        "drugName": { "type": "string" },
+        "quantity": { "type": "number" },
+        "totalPrice": { "type": "number" },
+        "profit": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "personnelId": { "type": "string" }
+      },
+      "required": ["shopId", "drugId", "quantity", "totalPrice", "profit", "timestamp", "personnelId"]
+    },
+    "Delivery": {
+      "title": "Delivery",
+      "description": "Incoming stock shipment for a shop",
+      "type": "object",
+      "properties": {
+        "shopId": { "type": "string" },
+        "drugName": { "type": "string" },
+        "quantity": { "type": "number" },
+        "costPrice": { "type": "number" },
+        "sellingPrice": { "type": "number" },
+        "expiryDate": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "declined"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "rejectionReason": { "type": "string" }
+      },
+      "required": ["shopId", "drugName", "quantity", "status", "createdAt"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "A request for drugs from personnel to admin",
+      "type": "object",
+      "properties": {
+        "shopId": { "type": "string" },
+        "drugName": { "type": "string" },
+        "quantity": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "processed"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "personnelId": { "type": "string" }
+      },
+      "required": ["shopId", "drugName", "quantity", "status", "createdAt", "personnelId"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "Daily operational expense recorded by personnel",
+      "type": "object",
+      "properties": {
+        "shopId": { "type": "string" },
+        "description": { "type": "string" },
+        "amount": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "personnelId": { "type": "string" }
+      },
+      "required": ["shopId", "description", "amount", "timestamp", "personnelId"]
+    },
+    "ExtraSale": {
+      "title": "Extra Sale",
+      "description": "A sale not linked to a specific inventory item",
+      "type": "object",
+      "properties": {
+        "shopId": { "type": "string" },
+        "description": { "type": "string" },
+        "amount": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "personnelId": { "type": "string" }
+      },
+      "required": ["shopId", "description", "amount", "timestamp", "personnelId"]
+    },
+    "Debt": {
+      "title": "Debt",
+      "description": "A record of drugs taken on loan by a patient",
+      "type": "object",
+      "properties": {
+        "shopId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "patientPhone": { "type": "string" },
+        "drugId": { "type": "string" },
+        "drugName": { "type": "string" },
+        "quantity": { "type": "number" },
+        "amount": { "type": "number" },
+        "profit": { "type": "number" },
+        "anticipatedPaymentDate": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["unpaid", "paid"] },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "personnelId": { "type": "string" }
+      },
+      "required": ["shopId", "patientName", "patientPhone", "drugId", "drugName", "quantity", "amount", "profit", "anticipatedPaymentDate", "status", "timestamp", "personnelId"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A communication message between admin and personnel",
+      "type": "object",
+      "properties": {
+        "shopId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "content": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "read": { "type": "boolean" }
+      },
+      "required": ["shopId", "senderId", "senderName", "content", "timestamp", "read"]
+    },
+    "SystemSettings": {
+      "title": "System Settings",
+      "description": "Global application settings",
+      "type": "object",
+      "properties": {
+        "value": { "type": "string", "description": "The value of the setting" }
+      },
+      "required": ["value"]
+    }
+  },
+  "firestore": {
+    "/shops/{shopId}": {
+      "schema": "Shop",
+      "description": "Collection of drug shops"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles and permissions"
+    },
+    "/drugs/{drugId}": {
+      "schema": "Drug",
+      "description": "Inventory across all shops"
+    },
+    "/sales/{saleId}": {
+      "schema": "Sale",
+      "description": "Sales transactions"
+    },
+    "/deliveries/{deliveryId}": {
+      "schema": "Delivery",
+      "description": "Incoming stock deliveries"
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Personnel drug orders"
+    },
+    "/expenses/{expenseId}": {
+      "schema": "Expense",
+      "description": "Shop expenses"
+    },
+    "/extraSales/{extraSaleId}": {
+      "schema": "ExtraSale",
+      "description": "Miscellaneous sales"
+    },
+    "/debts/{debtId}": {
+      "schema": "Debt",
+      "description": "Patient debts for drugs taken on loan"
+    },
+    "/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Chat messages between admin and personnel"
+    },
+    "/settings/{settingId}": {
+      "schema": "SystemSettings",
+      "description": "Global system configurations"
+    }
+  }
+}

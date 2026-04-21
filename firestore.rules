@@ -1,0 +1,234 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: shops
+    // Fields: name (string), location (string)
+    //
+    // Collection: users
+    // Fields: email (string), role (string: admin|personnel), shopId (string, optional)
+    //
+    // Collection: drugs
+    // Fields: name (string), shopId (string), costPrice (number), sellingPrice (number), quantity (number), expiryDate (string)
+    //
+    // Collection: sales
+    // Fields: shopId (string), drugId (string), drugName (string), quantity (number), totalPrice (number), profit (number), timestamp (timestamp), personnelId (string)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email.lower() == "thevalleyviewdrugshop@gmail.com" ||
+        request.auth.token.email.lower() == "luts789@gmail.com" ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function isShopPersonnel(shopId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.shopId == shopId;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'role']) &&
+             data.email is string && data.email.size() < 100 &&
+             data.role in ['admin', 'personnel'];
+    }
+
+    function isValidDrug(data) {
+      return data.keys().hasAll(['name', 'shopId', 'costPrice', 'sellingPrice', 'quantity', 'expiryDate']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.shopId is string &&
+             data.costPrice is number && data.costPrice >= 0 &&
+             data.sellingPrice is number && data.sellingPrice >= 0 &&
+             data.quantity is number &&
+             data.expiryDate is string && data.expiryDate.size() < 20;
+    }
+
+    function isValidSale(data) {
+      return data.keys().hasAll(['shopId', 'drugId', 'drugName', 'quantity', 'totalPrice', 'profit', 'timestamp', 'personnelId']) &&
+             data.shopId is string &&
+             data.drugId is string &&
+             data.drugName is string && data.drugName.size() < 100 &&
+             data.quantity is number && data.quantity > 0 &&
+             data.totalPrice is number &&
+             data.profit is number &&
+             data.timestamp is timestamp &&
+             data.personnelId == request.auth.uid;
+    }
+
+    function isValidDelivery(data) {
+      return data.keys().hasAll(['shopId', 'drugName', 'quantity', 'status', 'createdAt', 'costPrice', 'sellingPrice', 'expiryDate']) &&
+             data.shopId is string &&
+             data.drugName is string && data.drugName.size() < 100 &&
+             data.quantity is number && data.quantity > 0 &&
+             data.status in ['pending', 'confirmed', 'declined'] &&
+             data.createdAt is timestamp &&
+             data.costPrice is number && data.costPrice >= 0 &&
+             data.sellingPrice is number && data.sellingPrice >= 0 &&
+             data.expiryDate is string &&
+             (!('rejectionReason' in data) || data.rejectionReason is string);
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll(['shopId', 'drugName', 'quantity', 'status', 'createdAt', 'personnelId']) &&
+             data.shopId is string &&
+             data.drugName is string && data.drugName.size() < 100 &&
+             data.quantity is number && data.quantity > 0 &&
+             data.status in ['pending', 'approved', 'declined'] &&
+             data.createdAt is timestamp &&
+             data.personnelId == request.auth.uid;
+    }
+
+    function isValidExpense(data) {
+      return data.keys().hasAll(['shopId', 'description', 'amount', 'timestamp', 'personnelId']) &&
+             data.shopId is string &&
+             data.description is string && data.description.size() < 200 &&
+             data.amount is number && data.amount > 0 &&
+             data.timestamp is timestamp &&
+             data.personnelId == request.auth.uid;
+    }
+
+    function isValidExtraSale(data) {
+      return data.keys().hasAll(['shopId', 'description', 'amount', 'timestamp', 'personnelId']) &&
+             data.shopId is string &&
+             data.description is string && data.description.size() < 200 &&
+             data.amount is number && data.amount > 0 &&
+             data.timestamp is timestamp &&
+             data.personnelId == request.auth.uid;
+    }
+
+    function isValidDebt(data) {
+      return data.keys().hasAll(['shopId', 'patientName', 'patientPhone', 'drugId', 'drugName', 'quantity', 'amount', 'profit', 'anticipatedPaymentDate', 'status', 'timestamp', 'personnelId']) &&
+             data.shopId is string &&
+             data.patientName is string && data.patientName.size() < 100 &&
+             data.patientPhone is string && data.patientPhone.size() < 20 &&
+             data.drugId is string &&
+             data.drugName is string && data.drugName.size() < 100 &&
+             data.quantity is number && data.quantity > 0 &&
+             data.amount is number && data.amount >= 0 &&
+             data.profit is number &&
+             data.anticipatedPaymentDate is string &&
+             data.status in ['unpaid', 'paid'] &&
+             data.timestamp is timestamp &&
+             data.personnelId == request.auth.uid;
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasAll(['shopId', 'senderId', 'senderName', 'content', 'timestamp', 'read']) &&
+             data.shopId is string &&
+             data.senderId == request.auth.uid &&
+             data.senderName is string && data.senderName.size() < 100 &&
+             data.content is string && data.content.size() > 0 && data.content.size() < 1000 &&
+             data.timestamp is timestamp &&
+             data.read is bool;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /shops/{shopId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /users/{userId} {
+      // Allow users to read their own profile directly to avoid recursion in isAdmin()
+      allow read: if isAuthenticated() && (request.auth.uid == userId || request.auth.token.email.lower() == "thevalleyviewdrugshop@gmail.com" || request.auth.token.email.lower() == "luts789@gmail.com");
+      // Allow admins to read all profiles
+      allow read: if isAdmin();
+      
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && (isAdmin() || request.auth.uid == userId);
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && (isAdmin() || request.auth.uid == userId);
+      allow delete: if isAdmin() || (isAuthenticated() && resource != null && resource.data.email == request.auth.token.email);
+    }
+
+    match /drugs/{drugId} {
+      allow read: if isAuthenticated() && (isAdmin() || isShopPersonnel(resource.data.shopId));
+      allow create: if isAuthenticated() && (isAdmin() || isShopPersonnel(request.resource.data.shopId));
+      allow update: if isAuthenticated() && (isAdmin() || isShopPersonnel(resource.data.shopId));
+      allow delete: if isAdmin();
+    }
+
+    match /sales/{saleId} {
+      allow read: if isAuthenticated() && (isAdmin() || isShopPersonnel(resource.data.shopId));
+      allow create: if isAuthenticated() && isValidSale(request.resource.data) && (isAdmin() || isShopPersonnel(request.resource.data.shopId));
+      allow update, delete: if isAdmin();
+    }
+
+    match /deliveries/{deliveryId} {
+      allow read: if isAuthenticated() && (isAdmin() || isShopPersonnel(resource.data.shopId));
+      allow create: if isAdmin() && isValidDelivery(request.resource.data);
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        (isShopPersonnel(resource.data.shopId) && 
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'rejectionReason']) &&
+         (request.resource.data.status == 'confirmed' || request.resource.data.status == 'declined'))
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /orders/{orderId} {
+      allow read: if isAuthenticated() && (isAdmin() || isShopPersonnel(resource.data.shopId));
+      allow create: if isAuthenticated() && isValidOrder(request.resource.data);
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /expenses/{expenseId} {
+      allow read: if isAuthenticated() && (isAdmin() || isShopPersonnel(resource.data.shopId));
+      allow create: if isAuthenticated() && isValidExpense(request.resource.data);
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /extraSales/{extraSaleId} {
+      allow read: if isAuthenticated() && (isAdmin() || isShopPersonnel(resource.data.shopId));
+      allow create: if isAuthenticated() && isValidExtraSale(request.resource.data);
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /debts/{debtId} {
+      allow read: if isAuthenticated() && (isAdmin() || isShopPersonnel(resource.data.shopId));
+      allow create: if isAuthenticated() && isValidDebt(request.resource.data) && (isAdmin() || isShopPersonnel(request.resource.data.shopId));
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        (isShopPersonnel(resource.data.shopId) && 
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+         request.resource.data.status == 'paid')
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /messages/{messageId} {
+      allow read: if isAuthenticated() && (isAdmin() || isShopPersonnel(resource.data.shopId));
+      allow create: if isAuthenticated() && isValidMessage(request.resource.data) && (isAdmin() || isShopPersonnel(request.resource.data.shopId));
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        (isShopPersonnel(resource.data.shopId) && 
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']) &&
+         request.resource.data.read == true)
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /settings/{settingId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+  }
+}

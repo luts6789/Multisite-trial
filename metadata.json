@@ -1,0 +1,5 @@
+{
+  "name": "PharmaTrack Multi-Site",
+  "description": "A comprehensive drug shop management system with multi-site support, inventory tracking, sales reporting, and role-based access control.",
+  "requestFramePermissions": []
+}
